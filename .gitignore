@@ -1,0 +1,4 @@
+node_modules/
+accesskey.csv
+package-lock.json
+*/.env
