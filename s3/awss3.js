@@ -2,7 +2,9 @@
  * Default expiry for any presigned url is 15 minutes
  */
 
-const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, 
+    GetObjectCommand, PutObjectCommand, ListObjectsCommand, DeleteObjectCommand
+ } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 
 const { S3_BUCKET } = process.env

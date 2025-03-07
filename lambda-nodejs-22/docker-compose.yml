@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  aws-lambda-nodejs-22:
+    build: .
+    image: hello-lambda-nodejs-22:1.0.0
+    container_name: hello-lambda-nodejs
+    ports:
+      - "9000:8080"
+    volumes:
+      - .:/var/task
+
+
+
