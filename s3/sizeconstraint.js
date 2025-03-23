@@ -48,10 +48,14 @@ async function getSignedPostUrl(filename, filetype) {
             ['content-length-range', 0, 1048576 ], // upto 1MB
         ],
 
-        // fields are saved as object metadata s3 
+        // fields are saved as object metadata s3; meta-data values are always string
         Fields: {
+            // these are system defined meta-data
             'Content-Type': filetype,
             'Content-Disposition': 'inline',
+
+            // these are user defined meta data; user defined meta-data must have prefix X-Amz-Meta-
+            'X-Amz-Meta-User-Id': '12345'
         }
     })
 }
@@ -91,4 +95,8 @@ async function testPOST(filename = "image1.jpeg") {
     console.log('resdata: ', resdata);
 }
 
+// this will pass because file size is 10.3kb which is with in the accepted range
+testPOST();
+
+// this will fail as the file is is 2.3MB which exceeds the accepted rang
 testPOST("bigimage.jpg");
