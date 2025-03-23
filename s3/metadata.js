@@ -1,11 +1,9 @@
 const { HeadObjectCommand } = require('@aws-sdk/client-s3');
-const { s3Client } = require('./s3client');
-
-const BUCKET_NMAE = 'bucket-aws-nodejs';
+const { s3Client, BUCKET_NAME } = require('./s3client');
 
 async function getObjectMeta(Key) {
     const cmd = new HeadObjectCommand({
-        Bucket: BUCKET_NMAE,
+        Bucket: BUCKET_NAME,
         Key,
     });
 

@@ -6,22 +6,13 @@
  * accept only once. 
  */
 
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { createPresignedPost } = require('@aws-sdk/s3-presigned-post');
 const fs = require('node:fs/promises');
 const axios = require('axios');
 const path = require('node:path');
-
-const BUCKET_NAME = 'bucket-aws-nodejs';
-
-const s3Client = new S3Client({
-    region: process.env.S3_REIGON,
-    credentials: {
-        accessKeyId: process.env.AWS_ID,
-        secretAccessKey: process.env.AWS_SECRET,
-    }
-});
+const { s3Client, BUCKET_NAME} = require('./s3client');
 
 async function getPutSignedUrl(filename, filetype, filesize) {
     const cmd = new PutObjectCommand({
