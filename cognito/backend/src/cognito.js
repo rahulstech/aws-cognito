@@ -13,11 +13,6 @@ const cognito = new CognitoIdentityProviderClient({
     },
 });
 
-async function executeCommand(command, message) {
-    const res = await cognito.send(command);
-    console.log(message, ' ', res);
-}
-
 async function signup({ email, password, name }) {
     const cmd = new SignUpCommand({
         ClientId: process.env.COGNITO_CLIENT_ID,
@@ -51,7 +46,11 @@ async function signup({ email, password, name }) {
         }
         */
 
-    await executeCommand(cmd,'signup');
+    // send sigup command to cognito
+    const res = await cognito.send(cmd);
+
+    // return user_id
+    return res.UserSub;
 }
 
 async function verifySignup(email, code) {
@@ -90,7 +89,7 @@ async function verifySignup(email, code) {
         }
     */
 
-    await executeCommand(cmd,'verifySignup');
+    await cognito.send(cmd);
 }
 
 async function resendSignupCode(email) {
@@ -99,11 +98,10 @@ async function resendSignupCode(email) {
         Username: email,
     });
 
-    await executeCommand(cmd,'resendSignupCode');
+    await cognito.send(cmd);
 }
 
 async function login({ email, password }) {
-
     const cmd = new InitiateAuthCommand({
         ClientId: process.env.COGNITO_CLIENT_ID,
         // enable AUTH_USER_PASSWORD_AUTH in Auth Client in Aws Cognito User Pool
@@ -143,7 +141,9 @@ async function login({ email, password }) {
      * 'InvalidParameterException' => malformed login command to cognito, this is serverside error
      * NotAuthorizedException => username password error
      */
-    await executeCommand(cmd, 'login');
+    
+    const { AuthenticationResult } = await cognito.send(cmd);
+    return AuthenticationResult;
 }
 
 async function requestResetPassword(email) {
@@ -169,14 +169,14 @@ async function requestResetPassword(email) {
         }
         }
      */
-    await executeCommand(cmd,'requestResetPassword');
+    await cognito.send(cmd);
 }
 
 async function resetPassword({ email, code, newPassword }) {
     const cmd = new ConfirmForgotPasswordCommand({
         ClientId: process.env.COGNITO_CLIENT_ID,
         Username: email,
-        ConfirmationCode: `${code}`,
+        ConfirmationCode: code,
         Password: newPassword
     });
 
@@ -188,7 +188,7 @@ async function resetPassword({ email, code, newPassword }) {
         ExpiredCodeException => code expired
         UserNotFoundException => incorrect username (eg: email, phone etc.)
      */
-    await executeCommand(cmd,'resetPassword');
+    await cognito.send(cmd);
 }
 
 async function changeEmail(accessToken, newEmail) {
@@ -217,7 +217,7 @@ async function changeEmail(accessToken, newEmail) {
   ]
 }
  */
-    await executeCommand(cmd);
+    await cognito.send(cmd);
 }
 
 async function verifyEmail(accessToken, code) {
@@ -227,7 +227,7 @@ async function verifyEmail(accessToken, code) {
         Code: code,
     })
 
-    await executeCommand(cmd, 'verifyEmail');
+    await cognito.send(cmd);
 }
 
 // generate new access token is current access token has expired, requires refresh token and not expired
@@ -252,7 +252,8 @@ async function refreshAccessToken(refreshToken) {
         ChallengeParameters: {}
         }
      */
-    await executeCommand(cmd, 'refreshAccessToken');
+    const { AuthenticationResult } = await cognito.send(cmd);
+    return AuthenticationResult;
 }
 
 module.exports = {
