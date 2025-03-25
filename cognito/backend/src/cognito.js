@@ -1,6 +1,7 @@
 const { CognitoIdentityProviderClient, 
     SignUpCommand, ConfirmSignUpCommand, ResendConfirmationCodeCommand, 
-    InitiateAuthCommand
+    InitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand,
+    UpdateUserAttributesCommand, VerifyUserAttributeCommand,
 } =  require('@aws-sdk/client-cognito-identity-provider');
 
 
@@ -16,7 +17,6 @@ async function executeCommand(command, message) {
     const res = await cognito.send(command);
     console.log(message, ' ', res);
 }
-
 
 async function signup({ email, password, name }) {
     const cmd = new SignUpCommand({
@@ -51,7 +51,7 @@ async function signup({ email, password, name }) {
         }
         */
 
-    await executeCommand(cmd);
+    await executeCommand(cmd,'signup');
 }
 
 async function verifySignup(email, code) {
@@ -90,7 +90,7 @@ async function verifySignup(email, code) {
         }
     */
 
-    await executeCommand(cmd);
+    await executeCommand(cmd,'verifySignup');
 }
 
 async function resendSignupCode(email) {
@@ -99,7 +99,7 @@ async function resendSignupCode(email) {
         Username: email,
     });
 
-    await executeCommand(cmd);
+    await executeCommand(cmd,'resendSignupCode');
 }
 
 async function login({ email, password }) {
@@ -140,11 +140,122 @@ async function login({ email, password }) {
      * {
      * __type: 'SomthingException'
      * }
-     * 'InvalidParameterException' => 
+     * 'InvalidParameterException' => malformed login command to cognito, this is serverside error
+     * NotAuthorizedException => username password error
      */
-    await executeCommand(cmd, 'login')
+    await executeCommand(cmd, 'login');
+}
+
+async function requestResetPassword(email) {
+    const cmd = new ForgotPasswordCommand({
+        ClientId: process.env.COGNITO_CLIENT_ID,
+        Username: email,
+    });
+    /**
+     * successful response 
+     *    {
+        '$metadata': {
+            httpStatusCode: 200,
+            requestId: '50f050e1-03bb-4aba-a9b8-3920469308f1',
+            extendedRequestId: undefined,
+            cfId: undefined,
+            attempts: 1,
+            totalRetryDelay: 0
+        },
+        CodeDeliveryDetails: {
+            AttributeName: 'email',
+            DeliveryMedium: 'EMAIL',
+            Destination: 'r***@g***'
+        }
+        }
+     */
+    await executeCommand(cmd,'requestResetPassword');
+}
+
+async function resetPassword({ email, code, newPassword }) {
+    const cmd = new ConfirmForgotPasswordCommand({
+        ClientId: process.env.COGNITO_CLIENT_ID,
+        Username: email,
+        ConfirmationCode: `${code}`,
+        Password: newPassword
+    });
+
+    /**
+     * 
+     * error types
+        ===========
+        CodeMismatchException => incorrect code
+        ExpiredCodeException => code expired
+        UserNotFoundException => incorrect username (eg: email, phone etc.)
+     */
+    await executeCommand(cmd,'resetPassword');
+}
+
+async function changeEmail(accessToken, newEmail) {
+    const cmd = new UpdateUserAttributesCommand({
+        AccessToken: accessToken,
+        UserAttributes: [
+            { Name: 'email', Value: newEmail }
+        ]
+    })
+/**
+ * {
+  '$metadata': {
+    httpStatusCode: 200,
+    requestId: 'ec046080-07b8-4841-ab31-3f87ddf3b50b',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  },
+  CodeDeliveryDetailsList: [
+    {
+      AttributeName: 'email',
+      DeliveryMedium: 'EMAIL',
+      Destination: 's***@g***'
+    }
+  ]
+}
+ */
+    await executeCommand(cmd);
+}
+
+async function verifyEmail(accessToken, code) {
+    const cmd = new VerifyUserAttributeCommand({
+        AccessToken: accessToken,
+        AttributeName: 'email',
+        Code: code,
+    })
+
+    await executeCommand(cmd, 'verifyEmail');
+}
+
+// generate new access token is current access token has expired, requires refresh token and not expired
+// to generate access token cognito client must have ALLOW_REFrESH_TOKEN_AUTH auth flow permission which is allowed by default
+async function refreshAccessToken(refreshToken) {
+    const cmd = new InitiateAuthCommand({
+        ClientId: process.env.COGNITO_CLIENT_ID,
+        AuthFlow: 'REFRESH_TOKEN_AUTH',
+        AuthParameters: {
+            REFRESH_TOKEN: refreshToken,
+        }
+    });
+
+    /**
+     * on success
+     * AuthenticationResult: {
+        AccessToken: 'eyJraWQiOiJoSGNHWk1CeHlXMWxcL05hcU1QcHlNeWhMYzM1SWsxKzdvWmpPK2k5SCtDVT0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI0MTkzZWQxYS0xMGYxLTcwMWEtYzBhZi00ZDEzNzQ0YWIyYWEiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAuYXAtc291dGgtMS5hbWF6b25hd3MuY29tXC9hcC1zb3V0aC0xXzBTampZbUFBUCIsImNsaWVudF9pZCI6IjViZzJnNWsyajZrZ2ZsM3Uwdm1ub2xyZ3Z0Iiwib3JpZ2luX2p0aSI6IjU3MDZjZjExLTQzMDMtNDFiMi05ODhjLWM0YzFmZDI2ODI3YiIsImV2ZW50X2lkIjoiOWEzY2I5YjAtODUxZi00OGVkLWE4NTgtZGM4NzJlMjJjMDYzIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTc0Mjg3MzkyMCwiZXhwIjoxNzQyODc5NDA4LCJpYXQiOjE3NDI4NzU4MDgsImp0aSI6IjA0ZWY4MTEwLTM1ZjgtNGEzOC04Yjk4LWIwYzczMjAzYzIyOCIsInVzZXJuYW1lIjoiNDE5M2VkMWEtMTBmMS03MDFhLWMwYWYtNGQxMzc0NGFiMmFhIn0.Hx1o69-vCpf7H_m0meIWoFWlrcWTJfyKigg25vewGIHCMzG60W5NJnCTfC3omPSiTpn7Ti3v-K227CiGIPy0f-k3Gi-at4oT34PFG170Vq5ZjcR5Pn4uDBhVstVyRT46VAY1eCdlrOwewqH6C6IOjGTEym0lIjqVwK0deo3lEeBkI4FKmvs35gLq9EEFtBN9VdhC07eJZBN2uczW6qWqxVLtkauAQZ4n-XnhGNlLKw1VlA7LSVrt5PZ82_WzL_ghYZ2OthKySyiVwr1ztIaBVLOgKkAagM2l1VyzqBfygzrJsklzwencX59TXS1XJwlLiJqw7Kne9dCG3-kF4zG7Ug',
+        ExpiresIn: 3600,
+        IdToken: 'eyJraWQiOiJ2Y0VEVitNRE9kRWVaMnlNeUlMTVFidXRjMjJjclZzdGJyb2tMQ0FwdkVzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI0MTkzZWQxYS0xMGYxLTcwMWEtYzBhZi00ZDEzNzQ0YWIyYWEiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6XC9cL2NvZ25pdG8taWRwLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbVwvYXAtc291dGgtMV8wU2pqWW1BQVAiLCJjb2duaXRvOnVzZXJuYW1lIjoiNDE5M2VkMWEtMTBmMS03MDFhLWMwYWYtNGQxMzc0NGFiMmFhIiwib3JpZ2luX2p0aSI6IjU3MDZjZjExLTQzMDMtNDFiMi05ODhjLWM0YzFmZDI2ODI3YiIsImF1ZCI6IjViZzJnNWsyajZrZ2ZsM3Uwdm1ub2xyZ3Z0IiwiZXZlbnRfaWQiOiI5YTNjYjliMC04NTFmLTQ4ZWQtYTg1OC1kYzg3MmUyMmMwNjMiLCJ0b2tlbl91c2UiOiJpZCIsImF1dGhfdGltZSI6MTc0Mjg3MzkyMCwibmFtZSI6IlJhaHVsIiwiZXhwIjoxNzQyODc5NDA4LCJpYXQiOjE3NDI4NzU4MDgsImp0aSI6IjZkODk0N2QyLTBhNTItNGJjYi1iMzJiLTNlZDE1NTkzNmJiNSIsImVtYWlsIjoic29jaWFsLnJhaHVsYmFnY2hpMDRAZ21haWwuY29tIn0.hhCL0mJniDzC45d23JzBGozPM7e1xl5QTWKo3yUrItsH3DJQwqdWfGPjM6La7qSYT_6lAREez7n8NggFyQkrx3bnWi0gASWRtrLeSpKZwkwwmpnh95Hd6_LrT2y5ABoEda7IUHilrNY9mHzqrhzBdALqFX0jOtkQjz6fsbFxJXEYs3NwgGCLDdjPsxdQ17UTe0mNPMK-eGG68a9YQhwUPRVEZHRVagUOtkI288P5QA-xkmPIY9Vn59-ppzV1GxbPm0ExVAigjlZxBfMr1629g2LWGMUsaxGaSsfilsUpzAQx-75WcV0ppTjAyyHy9G4jN3-IIp48HDw6o4QhHozvgA',
+        TokenType: 'Bearer'
+        },
+        ChallengeParameters: {}
+        }
+     */
+    await executeCommand(cmd, 'refreshAccessToken');
 }
 
 module.exports = {
-    signup, verifySignup, resendSignupCode, login, 
+    signup, verifySignup, resendSignupCode, login, requestResetPassword, resetPassword, changeEmail, verifyEmail, refreshAccessToken,
+
 }
