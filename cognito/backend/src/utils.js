@@ -13,7 +13,7 @@ function pickOnly(src, keys, keepUndefined = true, dest = {}) {
     const filtered = Object.fromEntries(
         Object.entries(src).filter(([k,v]) => {
             if (keySet.has(k)) {
-                return !keepUndefined && v !== undefined;
+                return keepUndefined || v !== undefined;
             }
             return false;
         })

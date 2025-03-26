@@ -1,9 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const { signup, resendSignupCode, verifySignup, 
-    login, requestResetPassword, resetPassword, changeEmail, verifyEmail, refreshAccessToken } = require('./cognito');
+    login, requestResetPassword, resetPassword, changeEmail, verifyEmail, refreshAccessToken, 
+    resendEmailCode} = require('./cognito');
 const { catchError, AppError } = require('./errors');
 const { jwtDecode, pickOnly, } = require('./utils');
+const { logger } = require('./logger');
+const { validate, signupSchemas, verifySignupSchemas, resendSignupCodeSchemas, loginSchema, forgetPasswordSchemas, resetPasswordSchemas, updateEmailSchema, refreshTokenSchemas, verifyEmailSchemas } = require('./validation');
 
 const app = express();
 
@@ -13,7 +16,9 @@ app.use(cors({
 
 app.use(express.json());
 
+// create new use using email, password and full name
 app.post('/signup', 
+    catchError(validate(signupSchemas)),
     catchError( async (req,res) => {
         const { email, password, name } = req.body;
         const user_id = await signup({ email, password, name });
@@ -21,7 +26,9 @@ app.post('/signup',
     })
 )
 
+// verify signup using the code sent via registered email
 app.post('/signup/verify', 
+    catchError(validate(verifySignupSchemas)),
     catchError(async (req,res) => {
         const { code, email } = req.body;
         await verifySignup(email, code);
@@ -29,7 +36,9 @@ app.post('/signup/verify',
     })
 )
 
+// if signup is not confirmed and signup confirmation code expires request a new code
 app.post('/signup/code',
+    catchError(validate(resendSignupCodeSchemas)),
     catchError(async (req,res) => {
         const { email } = req.body;
         await resendSignupCode(email);
@@ -38,6 +47,7 @@ app.post('/signup/code',
 )
 
 app.post('/login', 
+    catchError(validate(loginSchema)),
     catchError(async (req,res) => {
         const { email, password } = req.body;
         const { AccessToken, IdToken, RefreshToken } = await login({ email, password });
@@ -57,8 +67,9 @@ app.post('/login',
     })
 )
 
-// it will receive the email from use and send a code to the email, later user have to use the code to set new password
+// it will receive the email from user and send a code to the email, later user have to use the code to set new password
 app.post('/login/forgotpassword', 
+    catchError(validate(forgetPasswordSchemas)),
     catchError(async (req,res) => {
         const { email } = req.body;
         await requestResetPassword(email);
@@ -66,8 +77,9 @@ app.post('/login/forgotpassword',
     })
 )
 
-// it will receive the email, the code and the new password and change the password
+// it will receive the email, the code and the new password and change the old password
 app.patch('/login/resetpassword', 
+    catchError(validate(resetPasswordSchemas)),
     catchError(async (req, res) => {
         const { email, code, newPassword } = req.body;
         await resetPassword({ email, code, newPassword });
@@ -75,7 +87,9 @@ app.patch('/login/resetpassword',
     })
 )
 
+// issue new access token using the provided refresh token
 app.post('/refreshtoken', 
+    catchError(validate(refreshTokenSchemas)),
     catchError(async (req,res) => {
         const { refreshToken } = req.body;
         const { AccessToken } = await refreshAccessToken(refreshToken);
@@ -106,7 +120,9 @@ profileRouter.use(async (req,res,next) => {
     next(new AppError(401));
 });
 
+// change current email, a confirmation code is sent to the new email
 profileRouter.patch('/update/email', 
+    catchError(validate(updateEmailSchema)),
     catchError(async (req,res) => {
         // get the bearer token from header
         const bearerToken = req.bearerToken;
@@ -121,7 +137,22 @@ profileRouter.patch('/update/email',
     })
 )
 
+// resend the email verification code
+profileRouter.get('/update/email/code', 
+    catchError(async (req,res) => {
+        // get bearer token
+        const bearerToken = req.bearerToken;
+
+        // requent cognito for new email verification code
+        await resendEmailCode(bearerToken);
+        
+        res.sendStatus(200);
+    })
+)
+
+// verify the new email with code sent to this email
 profileRouter.get('/verify/email', 
+    catchError(validate(verifyEmailSchemas)),
     catchError(async (req, res) => {
         // get the bearer token from header
         const bearerToken = req.bearerToken;
@@ -138,14 +169,13 @@ profileRouter.get('/verify/email',
 
 app.use('/profile', profileRouter);
 
-// error handler
+// error handlers
 
 // convert the cognito error
 app.use((error, req, res, next) => {
-    const name = error.__type;
+    const type = error.__type;
     let errorObj = error;
-    // TODO: better handle errors; currently context and details is not best describing 
-    switch(name) {
+    switch(type) {
         case 'ExpiredCodeException': {
             errorObj = new AppError(400,'code expired');
         }
@@ -158,16 +188,25 @@ app.use((error, req, res, next) => {
             errorObj = new AppError(404, 'incorrect email');
         }
         break;
+        case 'AliasExistsException':
+        case 'UsernameExistsException': {
+            errorObj = new AppError(403, 'email exists');
+        }
+        break;
+        case 'UserNotConfirmedException': {
+            errorObj = new AppError(403, 'user not confirmed');
+        }
+        break;
         case 'NotAuthorizedException': {
-            errorObj = new AppError(401, 'incorrect password');
+            errorObj = new AppError(401);
         }
         break;
         case 'InvalidPrameterException': {
-            errorObj = new AppError(500,{ context: error });
+            errorObj = new AppError(500,error.message, false);
         }
         break;
         case 'SerializationException': {
-            errorObj = new AppError(500, { context: error })
+            errorObj = new AppError(500, error.message, false);
         }
     }
     next(errorObj);
@@ -185,22 +224,22 @@ app.use((error, req, res, next) => {
 
 app.use((error, req, res, next) => {
     const requestContext = { 'http-method': req.method, 'http-path': req.url };
-    console.log( requestContext , error);
+    const errorObj = error.name === 'AppError' ? error : AppError.fromError(error, false, 500);
+    const statusCode = errorObj.statusCode;
 
-    if (error.name === 'AppError') {
-        const statusCode = error.statusCode;
-        if (statusCode >= 500 && statusCode < 600) {
-            // don't send details of server side errors
-            res.sendStatus(statusCode);
-        }
-        else {
-            // other than server side error send description and details only
-            const message = pickOnly(error.reason, ['description', 'details'], false);
-            res.status(statusCode).json(message);
-        }
+    logger.error('[ApiError]',  errorObj, requestContext);
+    if (statusCode >= 500 && statusCode < 600) {
+        // don't send details for server side errors
+        res.sendStatus(statusCode);
     }
     else {
-        res.sendStatus(500);
+        // other than server side error send description and details only
+        const message = pickOnly(errorObj.reason, ['description', 'details'], false);
+        res.status(statusCode).json(message);
+    }
+
+    if (!errorObj.isOperational) {
+        process.exit(1);
     }
 })
 
