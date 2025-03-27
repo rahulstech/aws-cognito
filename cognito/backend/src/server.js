@@ -21,8 +21,8 @@ app.post('/signup',
     catchError(validate(signupSchemas)),
     catchError( async (req,res) => {
         const { email, password, name } = req.body;
-        const user_id = await signup({ email, password, name });
-        res.sendStatus(204);
+        await signup({ email, password, name });
+        res.status(204).json();
     })
 )
 
@@ -32,7 +32,7 @@ app.post('/signup/verify',
     catchError(async (req,res) => {
         const { code, email } = req.body;
         await verifySignup(email, code);
-        res.sendStatus(200);
+        res.json();
     })
 )
 
@@ -42,7 +42,7 @@ app.post('/signup/code',
     catchError(async (req,res) => {
         const { email } = req.body;
         await resendSignupCode(email);
-        res.sendStatus(200);
+        res.json();
     })
 )
 
@@ -57,7 +57,7 @@ app.post('/login',
         res.json({
             "access-token": AccessToken,
             "access-token-expire": accessTokenExpiry,
-            "refresh-tokens": RefreshToken,
+            "refresh-token": RefreshToken,
             user: {
                 user_id: sub,
                 email,email_verified,
@@ -73,7 +73,7 @@ app.post('/login/forgotpassword',
     catchError(async (req,res) => {
         const { email } = req.body;
         await requestResetPassword(email);
-        res.sendStatus(200);
+        res.json();
     })
 )
 
@@ -83,7 +83,7 @@ app.patch('/login/resetpassword',
     catchError(async (req, res) => {
         const { email, code, newPassword } = req.body;
         await resetPassword({ email, code, newPassword });
-        res.sendStatus(200);
+        res.json();
     })
 )
 
@@ -132,8 +132,8 @@ profileRouter.patch('/update/email',
 
         // perform email update
         await changeEmail(bearerToken, newEmail);
-
-        res.sendStatus(200);
+        
+        res.json();
     })
 )
 
@@ -146,7 +146,7 @@ profileRouter.get('/update/email/code',
         // requent cognito for new email verification code
         await resendEmailCode(bearerToken);
         
-        res.sendStatus(200);
+        res.json();
     })
 )
 
@@ -163,7 +163,7 @@ profileRouter.get('/verify/email',
         // perform email update
         await verifyEmail(bearerToken, code);
 
-        res.sendStatus(200);
+        res.json();
     })
 )
 
@@ -230,7 +230,7 @@ app.use((error, req, res, next) => {
     logger.error('[ApiError]',  errorObj, requestContext);
     if (statusCode >= 500 && statusCode < 600) {
         // don't send details for server side errors
-        res.sendStatus(statusCode);
+        res.json();
     }
     else {
         // other than server side error send description and details only

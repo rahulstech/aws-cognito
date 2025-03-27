@@ -1,43 +1,40 @@
 import Container from 'react-bootstrap/Container'
-import Nav from 'react-bootstrap/Nav'
-import Card from 'react-bootstrap/Card'
-import Row from 'react-bootstrap/Row'
-import Col from 'react-bootstrap/Col'
-import Login from './features/login/Login'
-import { useRef, useState } from 'react'
-import Signup from './features/signup/Signup'
+import { Verification } from './components/Verification'
+import { createBrowserRouter, RouterProvider } from 'react-router'
+import SigninSignup from './components/SigninSignup'
+import { Provider } from 'react-redux'
+import appStore from './app/AppStore'
+import Profile, { ProfileHome, UpdateEmail, UpdateName } from './components/Profile'
+import { ForgetPassword, PasswordVerification, ResetPassword } from './components/PasswordReset'
+import { SigupVerification } from './components/Signup'
 
-function App() {
-  
-  const [activeTab, setActiveTab] = useState('login');
 
-  function handleChangeTab(tab) {
-    setActiveTab(tab);
+const router = createBrowserRouter([
+  { path: '', element: <SigninSignup /> },
+  { path: '/verify', element: <Verification />, 
+    children: [
+      { path: '', element: <SigupVerification />},
+      { path: 'password', element: <PasswordVerification /> }
+    ]
+  },
+  { path: '/forgetpassword', element: <ForgetPassword /> },
+  { path: '/resetpassword', element: <ResetPassword /> },
+  { path: '/profile', element: <Profile />, 
+    children: [
+      { path: '', element: <ProfileHome /> },
+      { path: 'update/email', element: <UpdateEmail /> },
+      { path: 'update/name', element: <UpdateName /> }
+    ]
   }
+]);
 
+export default function App() {
+  
   return (
-    <Container fluid className='vh-100 bg-secondary-subtle' >
-      <Row className='h-100 align-items-center justify-content-center'>
-        <Col md='6' >
-          <Card>
-            <Card.Header>
-              <Nav activeKey={activeTab} fill variant='tabs' onSelect={handleChangeTab}>
-                <Nav.Item>
-                  <Nav.Link eventKey='login'>Login</Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link eventKey='signup'>Signup</Nav.Link>
-                </Nav.Item>
-              </Nav>
-            </Card.Header>
-            <Card.Body>
-              { activeTab === 'login' ? <Login /> : <Signup /> }
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+    <Provider store={appStore}>
+      <Container fluid className='vh-100 bg-secondary-subtle' style={{ minWidth: '440px'}} >
+        <RouterProvider router={router} />
+      </Container>
+    </Provider>
   )
 }
-
-export default App

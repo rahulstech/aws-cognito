@@ -1,0 +1,37 @@
+import { forwardRef, useImperativeHandle, useRef, useState } from "react"
+import Button from "react-bootstrap/esm/Button"
+import Form from 'react-bootstrap/Form'
+import InputGroup from 'react-bootstrap/InputGroup'
+import FloatingLabel from "react-bootstrap/esm/FloatingLabel"
+
+const FloatingLabelPasswordControl = forwardRef(({ required, label, controlId, feedback } , ref) => {
+
+    const [ inputValue, setInputValue ] = useState('');
+    const [ showPassword, setShowPassword ] = useState(false);
+
+    useImperativeHandle(ref, () => ({
+        value: inputValue,
+    }), [inputValue]);
+
+    let feedbackClassName;
+    let buttonBorderColor;
+    if (feedback) {
+        feedbackClassName = 'is-invalid';
+        buttonBorderColor = 'dorder-danger';
+    }
+    
+    return (
+        <InputGroup>
+            <FloatingLabel label={label} controlId={controlId} className={feedbackClassName}>
+                <Form.Control required={Boolean(required)} className={` border-end-0 ${feedbackClassName}`}
+                 type={ showPassword ? 'text' : 'password' } placeholder="" onChange={e => setInputValue(e.target.value)} />
+            </FloatingLabel>
+            <Button className={`bg-transparent text-secondary fs-4 border-start-0 rounded-end-3 ${buttonBorderColor || 'border-secondary-subtle'}`} onClick={() => setShowPassword(!showPassword)}>
+                <i className={ showPassword ? "bi bi-eye-slash-fill" : "bi bi-eye-fill" } />
+            </Button>
+            { feedback && <Form.Control.Feedback type='invalid'>{feedback}</Form.Control.Feedback> }
+        </InputGroup>
+    )
+})
+
+export default FloatingLabelPasswordControl
