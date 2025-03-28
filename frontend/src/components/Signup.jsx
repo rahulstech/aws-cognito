@@ -41,7 +41,7 @@ export default function Signup() {
             <fieldset disabled={isLoading}>
                 <Stack direction='vertical' gap={3}>
                     <Form.Group>
-                        <FloatingLable label='Email' className={!isLoading && error?.email && 'is-invalid'}>
+                        <FloatingLable label='Email' controlId='inputEmail' className={!isLoading && error?.email && 'is-invalid'}>
                             <Form.Control ref={refEmail} className={!isLoading && error?.email && 'is-invalid'} type='email' placeholder='Email' required />
                         </FloatingLable>
                         {
@@ -54,7 +54,7 @@ export default function Signup() {
                         feedback={error?.password} isValid={ !isLoading && error?.password && false } />
 
                     <Form.Group>
-                        <FloatingLable label='Name'>
+                        <FloatingLable label='Name' controlId='inputName'>
                             <Form.Control ref={refName} type='personname' placeholder='Name' required />
                         </FloatingLable>
                     </Form.Group>
@@ -68,7 +68,7 @@ export default function Signup() {
 
 export function SigupVerification() {
     const [ verifySignup, { error, isLoading, data }] = useVerifySignupMutation();
-    const [ resendSignupCode, { error: resendError, isLoading: isLoadingResend, data: resendData }] = useResendSignupCodeMutation();
+    const [ resendSignupCode] = useResendSignupCodeMutation();
     const { state } = useLocation();
     const navigate = useNavigate();
 
@@ -84,17 +84,8 @@ export function SigupVerification() {
 
     if (!isLoading && data) {
         // signup verification successful, now login required
-        navigate('/');
+        navigate('/', { replace: true });
         return null;
-    }
-    else if (!isLoadingResend) {
-        if (resendData) {
-            // code send successfully
-            alert('code sent successfully');
-        }
-        else if (resendError) {
-            alert('code not sent please try again');
-        }
     }
 
     return <VerificationComponent disabled={isLoading} email={state?.email} onSubmit={handleSubmit} 

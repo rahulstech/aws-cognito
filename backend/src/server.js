@@ -1,18 +1,23 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const { signup, resendSignupCode, verifySignup, 
     login, requestResetPassword, resetPassword, changeEmail, verifyEmail, refreshAccessToken, 
-    resendEmailCode} = require('./cognito');
+    resendEmailCode,
+    updateUser,
+    getUserDetails} = require('./cognito');
 const { catchError, AppError } = require('./errors');
 const { jwtDecode, pickOnly, } = require('./utils');
 const { logger } = require('./logger');
-const { validate, signupSchemas, verifySignupSchemas, resendSignupCodeSchemas, loginSchema, forgetPasswordSchemas, resetPasswordSchemas, updateEmailSchema, refreshTokenSchemas, verifyEmailSchemas } = require('./validation');
+const { validate, signupSchemas, verifySignupSchemas, resendSignupCodeSchemas, loginSchema, forgetPasswordSchemas, resetPasswordSchemas, updateEmailSchema, refreshTokenSchemas, verifyEmailSchemas, profileUpdateSchemas } = require('./validation');
 
 const app = express();
 
 app.use(cors({
-    origin: '*',
+    origin: process.env.FRONTEND_ORIGIN,
 }));
+
+app.use(helmet())
 
 app.use(express.json());
 
@@ -113,7 +118,9 @@ profileRouter.use(async (req,res,next) => {
         const str = authorizationHeader.slice(0, 6);
         if (str && str.toLowerCase() === 'bearer') {
             const bearerToken = authorizationHeader.slice(7);
+            const { sub: user_id } = jwtDecode(bearerToken);
             req.bearerToken = bearerToken;
+            req.user = { user_id };
             return next();
         }
     }
@@ -124,28 +131,44 @@ profileRouter.use(async (req,res,next) => {
 profileRouter.patch('/update/email', 
     catchError(validate(updateEmailSchema)),
     catchError(async (req,res) => {
-        // get the bearer token from header
-        const bearerToken = req.bearerToken;
-
         // get the new email from body
         const { newEmail } = req.body;
 
         // perform email update
-        await changeEmail(bearerToken, newEmail);
+        await changeEmail(req.bearerToken, newEmail);
         
         res.json();
+    })
+)
+
+profileRouter.patch('/update', 
+    catchError(validate(profileUpdateSchemas)),
+    catchError(async (req,res) => {
+        const bearerToken = req.bearerToken;
+        const data = req.body;
+        await updateUser(bearerToken, data);
+        const { UserAttributes } = await getUserDetails(bearerToken);
+        if (UserAttributes) {
+            const user = UserAttributes.reduce((acc, cur) => {
+                let Name = cur.Name;
+                const Value = cur.Value;
+                if (Name === 'sub') {
+                    Name = 'user_id';
+                }
+                acc[Name] = Value;
+                return acc;
+            }, {});
+            return res.json({ user });
+        }
+        throw new AppError(500, 'no user details found');
     })
 )
 
 // resend the email verification code
 profileRouter.get('/update/email/code', 
     catchError(async (req,res) => {
-        // get bearer token
-        const bearerToken = req.bearerToken;
-
         // requent cognito for new email verification code
-        await resendEmailCode(bearerToken);
-        
+        await resendEmailCode(req.bearerToken);
         res.json();
     })
 )
@@ -154,14 +177,11 @@ profileRouter.get('/update/email/code',
 profileRouter.get('/verify/email', 
     catchError(validate(verifyEmailSchemas)),
     catchError(async (req, res) => {
-        // get the bearer token from header
-        const bearerToken = req.bearerToken;
-
-        // get the new email from body
+        // get the email verification code from body
         const { code } = req.query;
 
         // perform email update
-        await verifyEmail(bearerToken, code);
+        await verifyEmail(req.bearerToken, code);
 
         res.json();
     })
@@ -223,7 +243,7 @@ app.use((error, req, res, next) => {
 })
 
 app.use((error, req, res, next) => {
-    const requestContext = { 'http-method': req.method, 'http-path': req.url };
+    const requestContext = { 'http-method': req.method, 'http-path': req.url, user_id: req.user?.user_id };
     const errorObj = error.name === 'AppError' ? error : AppError.fromError(error, false, 500);
     const statusCode = errorObj.statusCode;
 

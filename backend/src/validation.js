@@ -73,6 +73,12 @@ const refreshTokenSchemas = {
     }).prefs({ allowUnknown: false })
 }
 
+const profileUpdateSchemas = {
+    body: joi.object({
+        name: joi.string(),
+    }).prefs({ allowUnknown: false })
+}
+
 function getStatusCode(validateOptions, field, otherwise = 400) {
     if (!validateOptions) {
         return otherwise;
@@ -111,5 +117,5 @@ function validate(schemas, options = null) {
 
 module.exports = { 
     validate, signupSchemas, verifySignupSchemas, resendSignupCodeSchemas, loginSchema, forgetPasswordSchemas, resetPasswordSchemas, 
-    updateEmailSchema, verifyEmailSchemas, refreshTokenSchemas,
+    updateEmailSchema, verifyEmailSchemas, refreshTokenSchemas, profileUpdateSchemas, 
 }

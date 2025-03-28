@@ -34,10 +34,6 @@ export default function Login() {
             navigate('/verify', { state: { email: refEmail.current.value, password: refPassword.current.value }});
             return null;
         }
-        else if (data) {
-            navigate('/profile');
-            return null;
-        }
     }
     
     return (
@@ -52,7 +48,7 @@ export default function Login() {
                         <Form.Control.Feedback type='invalid'>{error?.email}</Form.Control.Feedback>
                     </Form.Group>
 
-                    <FloatingLabelPasswordControl required ref={refPassword} label='Password' 
+                    <FloatingLabelPasswordControl required showRule={false} ref={refPassword} label='Password' controlId='inputPassword'
                         feedback={error?.password} />
                     
                     <a href='/forgetpassword' className='text-end'>Forget Password</a>

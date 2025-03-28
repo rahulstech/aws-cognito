@@ -25,8 +25,6 @@ export function ForgetPassword() {
         requestResetPasswordCode(email);
     }
 
-    console.log('error ', error);
-
     if (!isLoading && data) {
         navigate('/verify/password', { state: { email: refEmail.current.value }})
         return null;

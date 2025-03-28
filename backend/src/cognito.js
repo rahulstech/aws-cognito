@@ -3,6 +3,7 @@ const { CognitoIdentityProviderClient,
     InitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand,
     UpdateUserAttributesCommand, VerifyUserAttributeCommand,
     GetUserAttributeVerificationCodeCommand,
+    GetUserCommand,
 } =  require('@aws-sdk/client-cognito-identity-provider');
 
 
@@ -91,7 +92,7 @@ async function changeEmail(accessToken, newEmail) {
         UserAttributes: [
             { Name: 'email', Value: newEmail }
         ]
-    })
+    });
 
     await cognito.send(cmd);
 }
@@ -115,6 +116,24 @@ async function verifyEmail(accessToken, code) {
     await cognito.send(cmd);
 }
 
+async function updateUser(accessToken, data) {
+    const attributes = Object.entries(data).map(([k,v]) => ({ Name: k, Value: v }));
+    const cmd = new UpdateUserAttributesCommand({
+        AccessToken: accessToken,
+        UserAttributes: attributes,
+    });
+
+    await cognito.send(cmd);
+}
+
+async function getUserDetails(accessToken) {
+    const cmd = new GetUserCommand({
+        AccessToken: accessToken,
+    });
+
+    return await cognito.send(cmd);
+}
+
 // generte new access and id token using refresh token
 // to generate access token cognito client must have ALLOW_REFrESH_TOKEN_AUTH auth flow permission which is allowed by default
 async function refreshAccessToken(refreshToken) {
@@ -132,5 +151,5 @@ async function refreshAccessToken(refreshToken) {
 
 module.exports = {
     signup, verifySignup, resendSignupCode, login, requestResetPassword, resetPassword, changeEmail, verifyEmail, refreshAccessToken,
-    resendEmailCode,
+    resendEmailCode, updateUser, getUserDetails, 
 }

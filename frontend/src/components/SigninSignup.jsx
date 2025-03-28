@@ -6,25 +6,26 @@ import Login from './Login'
 import Signup from './Signup'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import appStorage from '../app/Storage'
+import { useLoggedinUser } from '../utils/hooks'
 
 export default function SigninSignup() {
 
     const [activeTab, setActiveTab] = useState('login');
     const navigate = useNavigate();
+    const user = useLoggedinUser();
     
     useEffect(() => {
-      if (appStorage.hasLoggedinUser()) {
+      if (user) {
           navigate('/profile');
       }
-    }, []);
+    }, [user]);
     
 
     function handleChangeTab(tab) {
         setActiveTab(tab);
     }
 
-    if (appStorage.hasLoggedinUser()) {
+    if (user) {
       return null;
     }
     

@@ -5,8 +5,11 @@ class LocalStorage {
         if (null === value || undefined === value) {
             serialized = null;
         }
-        else {
+        else if (typeof value === 'object') {
             serialized = JSON.stringify(value);
+        }
+        else { 
+            serialized = value;
         }
         localStorage.setItem(key, serialized);
     }

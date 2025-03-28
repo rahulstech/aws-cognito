@@ -4,7 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router'
 import SigninSignup from './components/SigninSignup'
 import { Provider } from 'react-redux'
 import appStore from './app/AppStore'
-import Profile, { ProfileHome, UpdateEmail, UpdateName } from './components/Profile'
+import Profile, { EmailVerification, ProfileHome, UpdateEmail, UpdateName } from './components/Profile'
 import { ForgetPassword, PasswordVerification, ResetPassword } from './components/PasswordReset'
 import { SigupVerification } from './components/Signup'
 
@@ -14,7 +14,7 @@ const router = createBrowserRouter([
   { path: '/verify', element: <Verification />, 
     children: [
       { path: '', element: <SigupVerification />},
-      { path: 'password', element: <PasswordVerification /> }
+      { path: 'password', element: <PasswordVerification /> },
     ]
   },
   { path: '/forgetpassword', element: <ForgetPassword /> },
@@ -23,7 +23,8 @@ const router = createBrowserRouter([
     children: [
       { path: '', element: <ProfileHome /> },
       { path: 'update/email', element: <UpdateEmail /> },
-      { path: 'update/name', element: <UpdateName /> }
+      { path: 'verify/email', element: <EmailVerification />},
+      { path: 'update/name', element: <UpdateName /> },
     ]
   }
 ]);
